@@ -1,11 +1,19 @@
+# start a unique tmux session for each window
+if command -v tmux &> /dev/null; then
+  if [ -z "$TMUX" ]; then
+    tmux new-session -s "session-$(date +%s)"
+  fi
+fi
+
+# vim
 VISUAL=vim
 EDITOR="$VISUAL"
 
-# BASH COMMAND SEARCH
+# bash command search with arrows
 bind '"\e[A":history-search-backward'
 bind '"\e[B":history-search-forward'
 
-# TEMPLE OF NAVIGATION
+# temple of navigation
 alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
@@ -19,7 +27,7 @@ alias ...........="cd ../../../../../../../../../.."
 alias ............="cd ../../../../../../../../../../.."
 alias .............="cd ../../../../../../../../../../../.."
 
-# BD IS POPPIN
+# bd pops off the cd stack
 function cd() {
   if [ "$#" = "0" ]
   then
@@ -31,7 +39,6 @@ function cd() {
   pushd "$1" > /dev/null
   fi
 }
-
 function bd(){
   if [ "$#" = "0" ]
   then
