@@ -146,15 +146,95 @@ reload_runtime_config() {
         return 0
     fi
 
-    # If executed from a tmux pane, queue reload in that interactive shell.
+    # Avoid sending keystrokes into the active pane; this can be consumed by later prompts.
     if command -v tmux >/dev/null 2>&1 && [[ -n "$TMUX_PANE" ]]; then
-        echo "Reload: queueing 'source $shell_rc' in tmux pane $TMUX_PANE."
-        tmux send-keys -t "$TMUX_PANE" "source $shell_rc" C-m
-        echo "Reload: queued shell reload in tmux pane."
+        echo "Reload: tmux pane detected; skipping queued shell reload."
+        echo "Reload: run 'source $shell_rc' after setup completes."
         return 0
     fi
 
     echo "Reload: run 'source $shell_rc' to reload this shell."
+}
+
+install_x_terminal() {
+    local x_repo
+    x_repo="$HOME/terminal-x"
+
+    if [[ ! -d "$x_repo" ]]; then
+        echo "x-terminal setup: $x_repo not found; skipping x-terminal install."
+        return 0
+    fi
+
+    if ! command -v node >/dev/null 2>&1; then
+        echo "x-terminal setup: node is required; skipping x-terminal install."
+        return 1
+    fi
+
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "x-terminal setup: npm is required; skipping x-terminal install."
+        return 1
+    fi
+
+    echo "x-terminal setup: installing dependencies and linking x from $x_repo."
+    if (
+        cd "$x_repo" &&
+        npm install &&
+        npm link
+    ); then
+        echo "x-terminal setup: linked command 'x' successfully."
+        return 0
+    fi
+
+    echo "x-terminal setup: install/link failed in $x_repo."
+    return 1
+}
+
+init_x_terminal_api_key() {
+    local init_choice normalized_choice key_file
+
+    echo "Final step for x-terminal setup: API key initialization."
+
+    if ! command -v x >/dev/null 2>&1; then
+        echo "x-terminal setup: command 'x' is not available; run setup again after install."
+        return 0
+    fi
+
+    key_file="$HOME/.x"
+    if [[ -f "$key_file" ]]; then
+        echo "x-terminal setup: existing $key_file detected; using existing key and skipping initialization."
+        return 0
+    fi
+
+    if [[ ! -t 0 ]]; then
+        echo "x-terminal setup: no interactive input available; skipping API key initialization."
+        return 0
+    fi
+
+    init_choice=""
+    if ! read -r -p "Initialize x-terminal API key now? [Y/n]: " init_choice; then
+        echo "x-terminal setup: no input received; skipping API key initialization."
+        return 0
+    fi
+
+    normalized_choice="$(printf '%s' "$init_choice" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+
+    case "$normalized_choice" in
+        ""|"y"|"yes")
+            if x init; then
+                echo "x-terminal setup: API key initialized."
+            else
+                echo "x-terminal setup: x init failed; run 'x init' later."
+            fi
+            ;;
+        "n"|"no")
+            echo "x-terminal setup: skipped API key initialization."
+            ;;
+        *)
+            echo "x-terminal setup: unrecognized input; skipping API key initialization."
+            ;;
+    esac
+
+    return 0
 }
 
 switch_to_zsh_if_on_bash || true
@@ -186,6 +266,11 @@ if [[ "${SHELL##*/}" == "bash" ]]; then
     migrate_bash_history_to_zsh
 fi
 
+if ! install_x_terminal; then
+    echo "x-terminal setup: continuing without x-terminal."
+fi
+
 echo "Dotfiles have been set up and symlinked!"
 
 reload_runtime_config
+init_x_terminal_api_key
