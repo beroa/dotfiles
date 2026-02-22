@@ -1,6 +1,8 @@
 #!/bin/bash
 
 DOTFILES_DIR="$HOME/dotfiles"
+X_TERMINAL_REPO_DIR="$HOME/terminal-x"
+X_TERMINAL_REPO_SSH_URL="git@github.com:davidfant/terminal-x.git"
 ZSH_INSTALLED_DURING_SETUP=0
 
 ln -sf "$DOTFILES_DIR/.zshrc2" "$HOME/.zshrc2"
@@ -9,40 +11,44 @@ ln -sf "$DOTFILES_DIR/.bashrc2" "$HOME/.bashrc2"
 ln -sf "$DOTFILES_DIR/.tmux.conf" "$HOME/.tmux.conf"
 ln -sf "$DOTFILES_DIR/.vimrc" "$HOME/.vimrc"
 
+has_cmd() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+run_as_root() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        "$@"
+    elif has_cmd sudo; then
+        sudo "$@"
+    else
+        echo "Root privileges are required to run: $*"
+        return 1
+    fi
+}
+
 install_zsh() {
-    if command -v zsh >/dev/null 2>&1; then
+    if has_cmd zsh; then
         return 0
     fi
 
-    run_as_root() {
-        if [[ "$(id -u)" -eq 0 ]]; then
-            "$@"
-        elif command -v sudo >/dev/null 2>&1; then
-            sudo "$@"
-        else
-            echo "Root privileges are required to install zsh."
-            return 1
-        fi
-    }
-
-    if command -v apt-get >/dev/null 2>&1; then
+    if has_cmd apt-get; then
         run_as_root apt-get update && run_as_root apt-get install -y zsh
-    elif command -v dnf >/dev/null 2>&1; then
+    elif has_cmd dnf; then
         run_as_root dnf install -y zsh
-    elif command -v yum >/dev/null 2>&1; then
+    elif has_cmd yum; then
         run_as_root yum install -y zsh
-    elif command -v pacman >/dev/null 2>&1; then
+    elif has_cmd pacman; then
         run_as_root pacman -Sy --noconfirm zsh
-    elif command -v zypper >/dev/null 2>&1; then
+    elif has_cmd zypper; then
         run_as_root zypper --non-interactive install zsh
-    elif command -v brew >/dev/null 2>&1; then
+    elif has_cmd brew; then
         brew install zsh
     else
         echo "No supported package manager found for zsh installation."
         return 1
     fi
 
-    if command -v zsh >/dev/null 2>&1; then
+    if has_cmd zsh; then
         ZSH_INSTALLED_DURING_SETUP=1
         return 0
     fi
@@ -82,7 +88,7 @@ install_oh_my_zsh() {
         return 0
     fi
 
-    if ! command -v git >/dev/null 2>&1; then
+    if ! has_cmd git; then
         echo "git is required to install Oh My Zsh."
         return 1
     fi
@@ -126,7 +132,7 @@ reload_runtime_config() {
     local shell_rc
     shell_rc="$HOME/.zshrc"
 
-    if command -v tmux >/dev/null 2>&1; then
+    if has_cmd tmux; then
         echo "Reload: tmux source-file $HOME/.tmux.conf"
         if tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1; then
             echo "Reload: tmux config reloaded."
@@ -147,7 +153,7 @@ reload_runtime_config() {
     fi
 
     # Avoid sending keystrokes into the active pane; this can be consumed by later prompts.
-    if command -v tmux >/dev/null 2>&1 && [[ -n "$TMUX_PANE" ]]; then
+    if has_cmd tmux && [[ -n "$TMUX_PANE" ]]; then
         echo "Reload: tmux pane detected; skipping queued shell reload."
         echo "Reload: run 'source $shell_rc' after setup completes."
         return 0
@@ -157,40 +163,62 @@ reload_runtime_config() {
 }
 
 install_x_terminal() {
-    local x_repo
-    x_repo="$HOME/terminal-x"
+    local repo_dir origin_url npm_log
 
-    if [[ ! -d "$x_repo" ]]; then
-        echo "x-terminal setup: $x_repo not found; skipping x-terminal install."
-        return 0
+    if ! has_cmd git; then
+        echo "x-terminal setup: git is required; skipping x-terminal install."
+        return 1
     fi
 
-    if ! command -v node >/dev/null 2>&1; then
+    repo_dir="$X_TERMINAL_REPO_DIR"
+
+    if [[ -d "$repo_dir/.git" ]]; then
+        origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
+        if [[ "$origin_url" =~ ^https?://github\.com/davidfant/terminal-x(/)?(\.git)?$ ]]; then
+            echo "x-terminal setup: switching origin remote to SSH."
+            if ! git -C "$repo_dir" remote set-url origin "$X_TERMINAL_REPO_SSH_URL"; then
+                echo "x-terminal setup: could not switch origin remote to SSH."
+                return 1
+            fi
+        fi
+    elif [[ -e "$repo_dir" ]]; then
+        echo "x-terminal setup: $repo_dir exists but is not a git repository; skipping clone."
+    else
+        echo "x-terminal setup: cloning x-terminal via SSH to $repo_dir."
+        if ! git clone "$X_TERMINAL_REPO_SSH_URL" "$repo_dir"; then
+            echo "x-terminal setup: failed to clone $X_TERMINAL_REPO_SSH_URL."
+            return 1
+        fi
+    fi
+
+    if ! has_cmd node; then
         echo "x-terminal setup: node is required; skipping x-terminal install."
         return 1
     fi
 
-    if ! command -v npm >/dev/null 2>&1; then
+    if ! has_cmd npm; then
         echo "x-terminal setup: npm is required; skipping x-terminal install."
         return 1
     fi
 
-    echo "x-terminal setup: installing dependencies and linking x from $x_repo."
+    npm_log="$(mktemp)"
     if (
-        cd "$x_repo" &&
-        npm install &&
-        npm link
+        cd "$repo_dir" &&
+        npm install >"$npm_log" 2>&1 &&
+        npm link >>"$npm_log" 2>&1
     ); then
+        rm -f "$npm_log"
         echo "x-terminal setup: linked command 'x' successfully."
         return 0
     fi
 
-    echo "x-terminal setup: install/link failed in $x_repo."
+    rm -f "$npm_log"
+    echo "x-terminal setup: install/link failed in $repo_dir."
     return 1
 }
 
 init_x_terminal_api_key() {
-    local init_choice normalized_choice key_file
+    local init_choice key_file
 
     echo "Final step for x-terminal setup: API key initialization."
 
@@ -216,9 +244,7 @@ init_x_terminal_api_key() {
         return 0
     fi
 
-    normalized_choice="$(printf '%s' "$init_choice" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-
-    case "$normalized_choice" in
+    case "$(printf '%s' "$init_choice" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')" in
         ""|"y"|"yes")
             if x init; then
                 echo "x-terminal setup: API key initialized."
