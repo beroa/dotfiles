@@ -1,6 +1,7 @@
 #!/bin/bash
 
 DOTFILES_DIR="$HOME/dotfiles"
+ZSH_INSTALLED_DURING_SETUP=0
 
 ln -sf "$DOTFILES_DIR/.zshrc2" "$HOME/.zshrc2"
 ln -sf "$DOTFILES_DIR/.bashrc2" "$HOME/.bashrc2"
@@ -41,7 +42,12 @@ install_zsh() {
         return 1
     fi
 
-    command -v zsh >/dev/null 2>&1
+    if command -v zsh >/dev/null 2>&1; then
+        ZSH_INSTALLED_DURING_SETUP=1
+        return 0
+    fi
+
+    return 1
 }
 
 switch_to_zsh_if_on_bash() {
@@ -100,9 +106,20 @@ migrate_bash_history_to_zsh() {
     fi
 
     # Overwrite zsh history with bash history, dropping bash timestamp markers.
-    awk '!/^#[0-9]{10,}$/' "$bash_history" > "$zsh_history"
+    if ! awk '!/^#[0-9]{10,}$/' "$bash_history" > "$zsh_history"; then
+        echo "Failed to migrate Bash history to Zsh history."
+        return 1
+    fi
     chmod 600 "$zsh_history"
     echo "Migrated Bash history to Zsh history: $zsh_history"
+
+    if [[ "$ZSH_INSTALLED_DURING_SETUP" -eq 1 ]]; then
+        if rm -f "$bash_history"; then
+            echo "Deleted ~/.bash_history after successful migration."
+        else
+            echo "Could not delete ~/.bash_history after migration."
+        fi
+    fi
 }
 
 reload_runtime_config() {
