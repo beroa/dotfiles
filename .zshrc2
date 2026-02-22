@@ -8,6 +8,35 @@ alias g-b-d="git for-each-ref --sort='committerdate:iso8601' --format=' %(commit
 alias mkdir='mkdir -p'
 alias ll='ls -lahtr'
 
+# keep one ssh-agent and load key once, so git over ssh does not reprompt every time
+if command -v ssh-agent >/dev/null 2>&1 && command -v ssh-add >/dev/null 2>&1; then
+  SSH_AGENT_ENV="$HOME/.ssh/agent_env"
+
+  if [ -z "$SSH_AUTH_SOCK" ] && [ -r "$SSH_AGENT_ENV" ]; then
+    source "$SSH_AGENT_ENV" >/dev/null 2>&1
+  fi
+
+  ssh-add -l >/dev/null 2>&1
+  ssh_add_status=$?
+
+  if [ "$ssh_add_status" -eq 2 ]; then
+    eval "$(ssh-agent -s)" >/dev/null
+    umask 077
+    {
+      echo "export SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+      echo "export SSH_AGENT_PID=$SSH_AGENT_PID"
+    } > "$SSH_AGENT_ENV"
+    ssh-add -l >/dev/null 2>&1
+    ssh_add_status=$?
+  fi
+
+  if [ "$ssh_add_status" -eq 1 ] && [ -r "$HOME/.ssh/id_ed25519" ] && [ -t 0 ]; then
+    ssh-add "$HOME/.ssh/id_ed25519" </dev/tty
+  fi
+
+  unset ssh_add_status
+fi
+
 # start a unique tmux session for each window
 if command -v tmux &> /dev/null; then
   # Keep local auto-start, but avoid nesting tmux when this shell is over SSH.
