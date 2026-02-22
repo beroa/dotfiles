@@ -3,6 +3,7 @@
 DOTFILES_DIR="$HOME/dotfiles"
 
 ln -sf "$DOTFILES_DIR/.zshrc2" "$HOME/.zshrc2"
+ln -sf "$DOTFILES_DIR/.bashrc2" "$HOME/.bashrc2"
 
 ln -sf "$DOTFILES_DIR/.tmux.conf" "$HOME/.tmux.conf"
 ln -sf "$DOTFILES_DIR/.vimrc" "$HOME/.vimrc"
@@ -88,6 +89,11 @@ migrate_bash_history_to_zsh() {
     bash_history="$HOME/.bash_history"
     zsh_history="$HOME/.zsh_history"
 
+    if [[ -s "$zsh_history" ]]; then
+        echo "Existing ~/.zsh_history found; skipping history migration."
+        return 0
+    fi
+
     if [[ ! -f "$bash_history" ]]; then
         echo "No ~/.bash_history found; skipping history migration."
         return 0
@@ -99,11 +105,48 @@ migrate_bash_history_to_zsh() {
     echo "Migrated Bash history to Zsh history: $zsh_history"
 }
 
+reload_runtime_config() {
+    local shell_rc
+    shell_rc="$HOME/.zshrc"
+
+    if command -v tmux >/dev/null 2>&1; then
+        echo "Reload: tmux source-file $HOME/.tmux.conf"
+        if tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1; then
+            echo "Reload: tmux config reloaded."
+        else
+            echo "Reload: tmux config reload skipped (no reachable tmux server/client)."
+        fi
+    else
+        echo "Reload: tmux not found; skipping tmux config reload."
+    fi
+
+    # If this script is sourced, reload now in the current shell process.
+    if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+        echo "Reload: sourcing $shell_rc in current shell."
+        # shellcheck disable=SC1090
+        source "$shell_rc"
+        echo "Reload: sourced $shell_rc."
+        return 0
+    fi
+
+    # If executed from a tmux pane, queue reload in that interactive shell.
+    if command -v tmux >/dev/null 2>&1 && [[ -n "$TMUX_PANE" ]]; then
+        echo "Reload: queueing 'source $shell_rc' in tmux pane $TMUX_PANE."
+        tmux send-keys -t "$TMUX_PANE" "source $shell_rc" C-m
+        echo "Reload: queued shell reload in tmux pane."
+        return 0
+    fi
+
+    echo "Reload: run 'source $shell_rc' to reload this shell."
+}
+
 switch_to_zsh_if_on_bash || true
 
 SHELL_RC="$HOME/.zshrc"
+BASH_RC="$HOME/.bashrc"
 
 touch "$SHELL_RC"
+touch "$BASH_RC"
 
 if install_oh_my_zsh; then
     if ! grep -Eq '^[[:space:]]*source[[:space:]]+\$ZSH/oh-my-zsh\.sh[[:space:]]*$' "$SHELL_RC"; then
@@ -119,6 +162,13 @@ fi
 sed -i '/^[[:space:]]*source[[:space:]]\+~\/\.zshrc2[[:space:]]*$/d' "$SHELL_RC"
 echo 'source ~/.zshrc2' >> "$SHELL_RC"
 
-migrate_bash_history_to_zsh
+sed -i '/^[[:space:]]*source[[:space:]]\+~\/\.bashrc2[[:space:]]*$/d' "$BASH_RC"
+echo 'source ~/.bashrc2' >> "$BASH_RC"
+
+if [[ "${SHELL##*/}" == "bash" ]]; then
+    migrate_bash_history_to_zsh
+fi
 
 echo "Dotfiles have been set up and symlinked!"
+
+reload_runtime_config
