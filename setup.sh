@@ -15,6 +15,22 @@ has_cmd() {
     command -v "$1" >/dev/null 2>&1
 }
 
+remove_oh_my_zsh() {
+    local omz_dir
+    omz_dir="$HOME/.oh-my-zsh"
+
+    if [[ -d "$omz_dir" ]]; then
+        if rm -rf "$omz_dir"; then
+            echo "Removed Oh My Zsh directory: $omz_dir"
+        else
+            echo "Failed to remove Oh My Zsh directory: $omz_dir"
+            return 1
+        fi
+    else
+        echo "Oh My Zsh directory not found: $omz_dir"
+    fi
+}
+
 run_as_root() {
     if [[ "$(id -u)" -eq 0 ]]; then
         "$@"
@@ -83,19 +99,6 @@ switch_to_zsh_if_on_bash() {
     return 1
 }
 
-install_oh_my_zsh() {
-    if [[ -d "$HOME/.oh-my-zsh" ]]; then
-        return 0
-    fi
-
-    if ! has_cmd git; then
-        echo "git is required to install Oh My Zsh."
-        return 1
-    fi
-
-    git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
-}
-
 migrate_bash_history_to_zsh() {
     local bash_history zsh_history
     bash_history="$HOME/.bash_history"
@@ -160,6 +163,24 @@ reload_runtime_config() {
     fi
 
     echo "Reload: run 'source $shell_rc' to reload this shell."
+}
+
+restart_shell_if_interactive() {
+    local next_shell
+
+    if [[ ! -t 0 || ! -t 1 ]]; then
+        echo "Restart: non-interactive shell detected; skipping shell restart."
+        return 0
+    fi
+
+    if has_cmd zsh; then
+        next_shell="$(command -v zsh)"
+    else
+        next_shell="${SHELL:-/bin/bash}"
+    fi
+
+    echo "Restart: launching fresh login shell: $next_shell -l"
+    exec "$next_shell" -l
 }
 
 install_x_terminal() {
@@ -271,16 +292,11 @@ BASH_RC="$HOME/.bashrc"
 touch "$SHELL_RC"
 touch "$BASH_RC"
 
-if install_oh_my_zsh; then
-    if ! grep -Eq '^[[:space:]]*source[[:space:]]+\$ZSH/oh-my-zsh\.sh[[:space:]]*$' "$SHELL_RC"; then
-        if ! grep -Eq '^[[:space:]]*export[[:space:]]+ZSH=' "$SHELL_RC"; then
-            echo 'export ZSH="$HOME/.oh-my-zsh"' >> "$SHELL_RC"
-        fi
-        echo 'source $ZSH/oh-my-zsh.sh' >> "$SHELL_RC"
-    fi
-else
-    echo "Oh My Zsh installation failed; continuing without it."
-fi
+remove_oh_my_zsh
+
+sed -i '/^[[:space:]]*export[[:space:]]\+ZSH=.*oh-my-zsh[[:space:]]*$/d' "$SHELL_RC"
+sed -i '/^[[:space:]]*source[[:space:]]\+\$ZSH\/oh-my-zsh\.sh[[:space:]]*$/d' "$SHELL_RC"
+sed -i '/^[[:space:]]*source[[:space:]]\+.*oh-my-zsh\/oh-my-zsh\.sh[[:space:]]*$/d' "$SHELL_RC"
 
 sed -i '/^[[:space:]]*source[[:space:]]\+~\/\.zshrc2[[:space:]]*$/d' "$SHELL_RC"
 echo 'source ~/.zshrc2' >> "$SHELL_RC"
@@ -300,3 +316,4 @@ echo "Dotfiles have been set up and symlinked!"
 
 reload_runtime_config
 init_x_terminal_api_key
+restart_shell_if_interactive

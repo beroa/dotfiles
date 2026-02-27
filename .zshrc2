@@ -68,18 +68,24 @@ export HISTFILESIZE=1000000
 export HISTSIZE=1000000
 export HISTCONTROL=ignoredups:erasedups
 
-# Keep theme choice in dotfiles; load it here for current ~/.zshrc order.
-ZSH_THEME="robbyrussell"
-if [ -n "$ZSH" ] && [ -r "$ZSH/themes/$ZSH_THEME.zsh-theme" ]; then
-  source "$ZSH/themes/$ZSH_THEME.zsh-theme"
-fi
+# Git prompt: [branch] and [branch:x] when dirty.
+git_prompt_info() {
+  command git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return
 
-# git prompt style: [branch] and [branch:x] when dirty
-ZSH_THEME_GIT_PROMPT_PREFIX="%F{#5f00af}[%F{#00ff00}"
-ZSH_THEME_GIT_PROMPT_DIRTY="%F{yellow}:x%F{#00ff00}"
-ZSH_THEME_GIT_PROMPT_CLEAN=""
-ZSH_THEME_GIT_PROMPT_SUFFIX="%F{#5f00af}]%f "
+  local branch dirty
+  branch="$(command git rev-parse --abbrev-ref HEAD 2>/dev/null)" || return
+  if [ "$branch" = "HEAD" ]; then
+    branch="$(command git rev-parse --short HEAD 2>/dev/null)" || return
+  fi
 
-# robbyrussell prompt without the leading arrow
-PROMPT="%F{#00ffff}%c%f"
-PROMPT+=' $(git_prompt_info)'
+  if [ -n "$(command git status --porcelain --ignore-submodules=dirty 2>/dev/null)" ]; then
+    dirty="%F{yellow}:x%F{#00ff00}"
+  else
+    dirty=""
+  fi
+
+  printf ' %s[%s%s%s%s' "%F{#5f00af}" "%F{#00ff00}" "$branch" "$dirty" "%F{#5f00af}]%f"
+}
+
+setopt PROMPT_SUBST
+PROMPT="%F{#00ffff}%c%f\$(git_prompt_info) "
