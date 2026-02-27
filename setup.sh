@@ -1,15 +1,28 @@
 #!/bin/bash
 
-DOTFILES_DIR="$HOME/dotfiles"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$SCRIPT_DIR"
 X_TERMINAL_REPO_DIR="$HOME/terminal-x"
 X_TERMINAL_REPO_SSH_URL="git@github.com:davidfant/terminal-x.git"
 ZSH_INSTALLED_DURING_SETUP=0
 
-ln -sf "$DOTFILES_DIR/.zshrc2" "$HOME/.zshrc2"
-ln -sf "$DOTFILES_DIR/.bashrc2" "$HOME/.bashrc2"
+link_dotfile() {
+    local source_file target_file
+    source_file="$1"
+    target_file="$2"
 
-ln -sf "$DOTFILES_DIR/.tmux.conf" "$HOME/.tmux.conf"
-ln -sf "$DOTFILES_DIR/.vimrc" "$HOME/.vimrc"
+    if [[ ! -e "$source_file" ]]; then
+        echo "Skipping missing dotfile: $source_file"
+        return 0
+    fi
+
+    if ! ln -sfn "$source_file" "$target_file"; then
+        echo "Failed to link $target_file -> $source_file"
+        return 1
+    fi
+
+    echo "Linked $target_file -> $source_file"
+}
 
 has_cmd() {
     command -v "$1" >/dev/null 2>&1
@@ -285,6 +298,11 @@ init_x_terminal_api_key() {
 }
 
 switch_to_zsh_if_on_bash || true
+
+link_dotfile "$DOTFILES_DIR/.zshrc2" "$HOME/.zshrc2" || exit 1
+link_dotfile "$DOTFILES_DIR/.bashrc2" "$HOME/.bashrc2" || exit 1
+link_dotfile "$DOTFILES_DIR/.tmux.conf" "$HOME/.tmux.conf" || exit 1
+link_dotfile "$DOTFILES_DIR/.vimrc" "$HOME/.vimrc" || exit 1
 
 SHELL_RC="$HOME/.zshrc"
 BASH_RC="$HOME/.bashrc"

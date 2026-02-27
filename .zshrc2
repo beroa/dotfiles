@@ -68,6 +68,15 @@ export HISTFILESIZE=1000000
 export HISTSIZE=1000000
 export HISTCONTROL=ignoredups:erasedups
 
+# History search with arrow keys: typed prefix + up/down.
+autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+zle -N up-line-or-beginning-search
+zle -N down-line-or-beginning-search
+bindkey "^[[A" up-line-or-beginning-search
+bindkey "^[[B" down-line-or-beginning-search
+bindkey "^[OA" up-line-or-beginning-search
+bindkey "^[OB" down-line-or-beginning-search
+
 # Git prompt: [branch] and [branch:x] when dirty.
 git_prompt_info() {
   command git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return
@@ -88,4 +97,4 @@ git_prompt_info() {
 }
 
 setopt PROMPT_SUBST
-PROMPT="%F{#00ffff}%c%f\$(git_prompt_info) "
+PROMPT="%F{#00d7d7}%n@%m%f %F{#00ffff}%c%f$(git_prompt_info) "
