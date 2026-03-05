@@ -97,4 +97,4 @@ git_prompt_info() {
 }
 
 setopt PROMPT_SUBST
-PROMPT="%F{#00d7d7}%n@%m%f %F{#00ffff}%c%f$(git_prompt_info) "
+PROMPT='%F{#00d7d7}%n@%m%f %F{#00ffff}%c%f$(git_prompt_info) '

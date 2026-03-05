@@ -28,6 +28,22 @@ has_cmd() {
     command -v "$1" >/dev/null 2>&1
 }
 
+delete_lines_matching() {
+    local pattern target tmp_file
+    pattern="$1"
+    target="$2"
+    tmp_file="$(mktemp "${TMPDIR:-/tmp}/dotfiles-sed.XXXXXX")" || return 1
+
+    if sed "$pattern" "$target" > "$tmp_file"; then
+        if mv "$tmp_file" "$target"; then
+            return 0
+        fi
+    fi
+
+    rm -f "$tmp_file"
+    return 1
+}
+
 remove_oh_my_zsh() {
     local omz_dir
     omz_dir="$HOME/.oh-my-zsh"
@@ -312,15 +328,17 @@ touch "$BASH_RC"
 
 remove_oh_my_zsh
 
-sed -i '/^[[:space:]]*export[[:space:]]\+ZSH=.*oh-my-zsh[[:space:]]*$/d' "$SHELL_RC"
-sed -i '/^[[:space:]]*source[[:space:]]\+\$ZSH\/oh-my-zsh\.sh[[:space:]]*$/d' "$SHELL_RC"
-sed -i '/^[[:space:]]*source[[:space:]]\+.*oh-my-zsh\/oh-my-zsh\.sh[[:space:]]*$/d' "$SHELL_RC"
+delete_lines_matching '/^[[:space:]]*export[[:space:]]\{1,\}ZSH=.*oh-my-zsh[[:space:]]*$/d' "$SHELL_RC"
+delete_lines_matching '/^[[:space:]]*source[[:space:]]\{1,\}\$ZSH\/oh-my-zsh\.sh[[:space:]]*$/d' "$SHELL_RC"
+delete_lines_matching '/^[[:space:]]*source[[:space:]]\{1,\}.*oh-my-zsh\/oh-my-zsh\.sh[[:space:]]*$/d' "$SHELL_RC"
 
-sed -i '/^[[:space:]]*source[[:space:]]\+~\/\.zshrc2[[:space:]]*$/d' "$SHELL_RC"
-echo 'source ~/.zshrc2' >> "$SHELL_RC"
+delete_lines_matching '/^[[:space:]]*source[[:space:]]\{1,\}~\/\.zshrc2[[:space:]]*$/d' "$SHELL_RC"
+delete_lines_matching '/^[[:space:]]*\[ -f ~\/\.zshrc2 \] && source[[:space:]]\{1,\}~\/\.zshrc2[[:space:]]*$/d' "$SHELL_RC"
+echo '[ -f ~/.zshrc2 ] && source ~/.zshrc2' >> "$SHELL_RC"
 
-sed -i '/^[[:space:]]*source[[:space:]]\+~\/\.bashrc2[[:space:]]*$/d' "$BASH_RC"
-echo 'source ~/.bashrc2' >> "$BASH_RC"
+delete_lines_matching '/^[[:space:]]*source[[:space:]]\{1,\}~\/\.bashrc2[[:space:]]*$/d' "$BASH_RC"
+delete_lines_matching '/^[[:space:]]*\[ -f ~\/\.bashrc2 \] && source[[:space:]]\{1,\}~\/\.bashrc2[[:space:]]*$/d' "$BASH_RC"
+echo '[ -f ~/.bashrc2 ] && source ~/.bashrc2' >> "$BASH_RC"
 
 if [[ "${SHELL##*/}" == "bash" ]]; then
     migrate_bash_history_to_zsh
