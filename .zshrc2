@@ -46,8 +46,8 @@ if command -v tmux &> /dev/null; then
 fi
 
 # use vim
-VISUAL=vim
-EDITOR="$VISUAL"
+export VISUAL='vim'
+export EDITOR="$VISUAL"
 
 # temple of navigation
 alias ..="cd .."
@@ -64,12 +64,22 @@ alias ............="cd ../../../../../../../../../../.."
 alias .............="cd ../../../../../../../../../../../.."
 
 # lots of history that persists
-export HISTFILESIZE=1000000
-export HISTSIZE=1000000
-export HISTCONTROL=ignoredups:erasedups
+HISTFILE="${ZDOTDIR:-$HOME}/.zsh_history"
+HISTSIZE=1000000
+SAVEHIST=1000000
+setopt APPEND_HISTORY
+setopt EXTENDED_HISTORY
+setopt HIST_EXPIRE_DUPS_FIRST
+setopt HIST_FIND_NO_DUPS
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_REDUCE_BLANKS
+setopt HIST_SAVE_NO_DUPS
+setopt SHARE_HISTORY
 
 # History search with arrow keys: typed prefix + up/down.
-autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+autoload -Uz up-line-or-beginning-search down-line-or-beginning-search vcs_info add-zsh-hook
 zle -N up-line-or-beginning-search
 zle -N down-line-or-beginning-search
 bindkey "^[[A" up-line-or-beginning-search
@@ -77,24 +87,20 @@ bindkey "^[[B" down-line-or-beginning-search
 bindkey "^[OA" up-line-or-beginning-search
 bindkey "^[OB" down-line-or-beginning-search
 
-# Git prompt: [branch] and [branch:x] when dirty.
-git_prompt_info() {
-  command git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return
+# Git prompt via vcs_info keeps the branch indicator without running git status.
+zstyle ':vcs_info:*' enable git
+zstyle ':vcs_info:*' max-exports 1
+zstyle ':vcs_info:git:*' check-for-changes true
+zstyle ':vcs_info:git:*' stagedstr '%F{yellow}:+%F{#00ff00}'
+zstyle ':vcs_info:git:*' unstagedstr '%F{yellow}:x%F{#00ff00}'
+zstyle ':vcs_info:git:*' formats ' %F{#5f00af}[%F{#00ff00}%b%u%c%F{#5f00af}]%f'
+zstyle ':vcs_info:git:*' actionformats ' %F{#5f00af}[%F{#00ff00}%b|%a%u%c%F{#5f00af}]%f'
 
-  local branch dirty
-  branch="$(command git rev-parse --abbrev-ref HEAD 2>/dev/null)" || return
-  if [ "$branch" = "HEAD" ]; then
-    branch="$(command git rev-parse --short HEAD 2>/dev/null)" || return
-  fi
-
-  if [ -n "$(command git status --porcelain --ignore-submodules=dirty 2>/dev/null)" ]; then
-    dirty="%F{yellow}:x%F{#00ff00}"
-  else
-    dirty=""
-  fi
-
-  printf ' %s[%s%s%s%s' "%F{#5f00af}" "%F{#00ff00}" "$branch" "$dirty" "%F{#5f00af}]%f"
+precmd_update_vcs_info() {
+  vcs_info
 }
 
+add-zsh-hook precmd precmd_update_vcs_info
+
 setopt PROMPT_SUBST
-PROMPT='%F{#00d7d7}%n@%m%f %F{#00ffff}%c%f$(git_prompt_info) '
+PROMPT='%F{#00d7d7}%n@%m%f %F{#00ffff}%c%f${vcs_info_msg_0_} '
