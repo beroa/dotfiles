@@ -4,6 +4,11 @@ set ignorecase
 set smartcase
 set incsearch
 set hlsearch
+" Keep terminal keycodes fast so a plain Esc exits insert mode promptly.
+set timeout
+set timeoutlen=500
+set ttimeout
+set ttimeoutlen=10
 set number
 set autoindent
 set smarttab
