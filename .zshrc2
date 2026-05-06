@@ -87,6 +87,21 @@ bindkey "^[[B" down-line-or-beginning-search
 bindkey "^[OA" up-line-or-beginning-search
 bindkey "^[OB" down-line-or-beginning-search
 
+# Show completion choices in an interactive menu and allow matching from the middle or end of candidates.
+zmodload zsh/complist
+setopt AUTO_LIST
+setopt AUTO_MENU
+setopt COMPLETE_IN_WORD
+zstyle ':completion:*' matcher-list \
+  '' \
+  'm:{a-zA-Z}={A-Za-z}' \
+  'r:|[._-]=* r:|=*' \
+  'l:|=* r:|=*'
+zstyle ':completion:*' menu select
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%F{yellow}-- %d --%f'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+
 # Git prompt via vcs_info keeps the branch indicator without running git status.
 zstyle ':vcs_info:*' enable git
 zstyle ':vcs_info:*' max-exports 1

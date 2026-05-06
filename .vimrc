@@ -9,7 +9,7 @@ set timeout
 set timeoutlen=500
 set ttimeout
 set ttimeoutlen=10
-set number
+set relativenumber
 set autoindent
 set smarttab
 set splitbelow
