@@ -1,12 +1,21 @@
 # aliases
 alias ch='clear ; tmux clear-history'
 alias gco='git checkout'
+alias gc-='git checkout -'
 alias gl='git log'
 alias gs='git status'
 alias git-delete-merged='git branch --merged main | grep -v "^\* main" | xargs -n 1 -r git branch -d'
 alias g-b-d="git for-each-ref --sort='committerdate:iso8601' --format=' %(committerdate:iso8601)%09%(refname)' refs/heads"
 alias mkdir='mkdir -p'
 alias ll='ls -lahtr'
+
+# Auto-start tmux in local interactive shells. Run before ssh-add (can block on passphrase)
+# and use exec so exiting tmux closes the tab instead of dropping into a non-tmux shell.
+if [[ -o interactive ]] && [[ -z "$TMUX" ]] && [[ -z "${SSH_CONNECTION}${SSH_CLIENT}${SSH_TTY}" ]]; then
+  if command -v tmux &>/dev/null; then
+    exec tmux new-session -s "session-$(date +%s)"
+  fi
+fi
 
 # keep one ssh-agent and load key once, so git over ssh does not reprompt every time
 if command -v ssh-agent >/dev/null 2>&1 && command -v ssh-add >/dev/null 2>&1; then
@@ -35,14 +44,6 @@ if command -v ssh-agent >/dev/null 2>&1 && command -v ssh-add >/dev/null 2>&1; t
   fi
 
   unset ssh_add_status
-fi
-
-# start a unique tmux session for each window
-if command -v tmux &> /dev/null; then
-  # Keep local auto-start, but avoid nesting tmux when this shell is over SSH.
-  if [ -z "$TMUX" ] && [ -z "${SSH_CONNECTION}${SSH_CLIENT}${SSH_TTY}" ]; then
-    tmux new-session -s "session-$(date +%s)"
-  fi
 fi
 
 # use vim
@@ -101,6 +102,14 @@ zstyle ':completion:*' menu select
 zstyle ':completion:*' group-name ''
 zstyle ':completion:*:descriptions' format '%F{yellow}-- %d --%f'
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+
+# 24hr compinit cache
+autoload -Uz compinit
+if [[ -n ~/.zcompdump(#qNmh-24) ]]; then
+	  compinit -C
+  else
+	    compinit
+fi
 
 # Git prompt via vcs_info keeps the branch indicator without running git status.
 zstyle ':vcs_info:*' enable git
