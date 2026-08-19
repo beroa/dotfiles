@@ -320,6 +320,14 @@ link_dotfile "$DOTFILES_DIR/.bashrc2" "$HOME/.bashrc2" || exit 1
 link_dotfile "$DOTFILES_DIR/.tmux.conf" "$HOME/.tmux.conf" || exit 1
 link_dotfile "$DOTFILES_DIR/.vimrc" "$HOME/.vimrc" || exit 1
 
+mkdir -p "$HOME/.local/bin"
+link_dotfile "$DOTFILES_DIR/bin/paste-harness.sh" "$HOME/.local/bin/paste-harness" || exit 1
+link_dotfile "$DOTFILES_DIR/bin/tmux-paste-from-clipboard" "$HOME/.local/bin/tmux-paste-from-clipboard" || exit 1
+chmod +x "$DOTFILES_DIR/bin/paste-harness.sh" \
+  "$DOTFILES_DIR/bin/tmux-paste-from-clipboard" \
+  "$DOTFILES_DIR/bin/paste-harness/"*.sh \
+  "$DOTFILES_DIR/bin/paste-harness/probe.py" 2>/dev/null || true
+
 SHELL_RC="$HOME/.zshrc"
 BASH_RC="$HOME/.bashrc"
 
