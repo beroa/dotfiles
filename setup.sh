@@ -24,8 +24,57 @@ link_dotfile() {
     echo "Linked $target_file -> $source_file"
 }
 
+link_pi_resource_dir() {
+    local resource source_dir target_dir
+    resource="$1"
+    source_dir="$DOTFILES_DIR/pi/$resource"
+    target_dir="$HOME/.pi/agent/$resource"
+
+    mkdir -p "$source_dir" "$HOME/.pi/agent"
+
+    if [[ -L "$target_dir" || ! -e "$target_dir" ]]; then
+        if ! ln -sfn "$source_dir" "$target_dir"; then
+            echo "Failed to link $target_dir -> $source_dir"
+            return 1
+        fi
+        echo "Linked $target_dir -> $source_dir"
+    elif [[ -d "$target_dir" ]]; then
+        echo "Preserving existing Pi directory: $target_dir"
+    else
+        echo "Cannot link Pi resource directory over existing file: $target_dir"
+        return 1
+    fi
+}
+
 has_cmd() {
     command -v "$1" >/dev/null 2>&1
+}
+
+install_pi_if_missing() {
+    if has_cmd pi; then
+        echo "Pi already installed: $(command -v pi)"
+        return 0
+    fi
+
+    if ! has_cmd curl; then
+        echo "Cannot install Pi: curl is not installed." >&2
+        return 1
+    fi
+
+    echo "Pi not found; installing with the official installer."
+    if ! curl -fsSL https://pi.dev/install.sh | sh; then
+        echo "Pi installation failed." >&2
+        return 1
+    fi
+
+    if [[ -x "$HOME/.pi/agent/bin/pi" ]]; then
+        PATH="$HOME/.pi/agent/bin:$PATH"
+        export PATH
+    fi
+    if ! has_cmd pi; then
+        echo "Pi installer completed, but 'pi' is not on PATH. Add ~/.pi/agent/bin to PATH and rerun setup." >&2
+        return 1
+    fi
 }
 
 delete_lines_matching() {
@@ -320,13 +369,29 @@ link_dotfile "$DOTFILES_DIR/.bashrc2" "$HOME/.bashrc2" || exit 1
 link_dotfile "$DOTFILES_DIR/.tmux.conf" "$HOME/.tmux.conf" || exit 1
 link_dotfile "$DOTFILES_DIR/.vimrc" "$HOME/.vimrc" || exit 1
 
+# Install Pi on fresh devices, then keep customizations in this repository.
+install_pi_if_missing || exit 1
+link_dotfile "$DOTFILES_DIR/pi/settings.json" "$HOME/.pi/agent/settings.json" || exit 1
+link_dotfile "$DOTFILES_DIR/pi/keybindings.json" "$HOME/.pi/agent/keybindings.json" || exit 1
+link_dotfile "$DOTFILES_DIR/pi/models.json" "$HOME/.pi/agent/models.json" || exit 1
+for pi_context_file in AGENTS.md AGENTS.override.md SYSTEM.md APPEND_SYSTEM.md; do
+    if [[ -f "$DOTFILES_DIR/pi/$pi_context_file" ]]; then
+        link_dotfile "$DOTFILES_DIR/pi/$pi_context_file" "$HOME/.pi/agent/$pi_context_file" || exit 1
+    fi
+done
+for pi_resource in extensions skills prompts themes; do
+    link_pi_resource_dir "$pi_resource" || exit 1
+done
+"$DOTFILES_DIR/pi/apply-model-selector-patch.sh" || exit 1
+
 mkdir -p "$HOME/.local/bin"
 link_dotfile "$DOTFILES_DIR/bin/paste-harness.sh" "$HOME/.local/bin/paste-harness" || exit 1
 link_dotfile "$DOTFILES_DIR/bin/tmux-paste-from-clipboard" "$HOME/.local/bin/tmux-paste-from-clipboard" || exit 1
 chmod +x "$DOTFILES_DIR/bin/paste-harness.sh" \
   "$DOTFILES_DIR/bin/tmux-paste-from-clipboard" \
   "$DOTFILES_DIR/bin/paste-harness/"*.sh \
-  "$DOTFILES_DIR/bin/paste-harness/probe.py" 2>/dev/null || true
+  "$DOTFILES_DIR/bin/paste-harness/probe.py" \
+  "$DOTFILES_DIR/pi/apply-model-selector-patch.sh" 2>/dev/null || true
 
 SHELL_RC="$HOME/.zshrc"
 BASH_RC="$HOME/.bashrc"
