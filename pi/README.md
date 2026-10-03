@@ -8,12 +8,12 @@ installation, sessions, and credentials local to each machine.
 
 `extensions/modes.ts` provides **normal**, **ask**, and **plan** modes. Use
 **Shift+Tab** to cycle or `/mode` to choose/set one directly. Ask disables
-tools; plan keeps tools available for research while remaining non-mutating.
-Plan mode loads the `grill-me` skill every turn, explores options and tradeoffs,
-and recommends an option when appropriate. The active mode is always shown
-in the two-line footer, alongside model, price, and context used/total with
-percentage. Mode and prior tool set are restored with the session. Shift+Tab
-replaces Pi's built-in thinking-level cycle in `keybindings.json`.
+tools. Plan mode keeps investigation read-only and asks one question at a time
+with arrow-key choices. Press Enter to answer, Tab to add notes, or choose
+Other to enter a custom answer. It recommends an option when there is a clear
+best fit, then presents a plan and stops. Mode and prior tool set are restored
+with the session. Shift+Tab replaces Pi's built-in thinking-level cycle in
+`keybindings.json`.
 
 ## Model switcher
 

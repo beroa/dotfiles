@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
@@ -48,17 +45,6 @@ function collectUsage(ctx: ExtensionContext): UsageTotals {
 		} else if (entry.type === "branch_summary" || entry.type === "compaction") add(entry.usage);
 	}
 	return totals;
-}
-
-function loadGrillMeInstructions(): string {
-	const skillPath = join(homedir(), ".agents", "skills", "grill-me", "SKILL.md");
-	try {
-		return readFileSync(skillPath, "utf8")
-			.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "")
-			.trim();
-	} catch {
-		return `The required grill-me skill is missing at ${skillPath}. Ask the user to rerun setup before planning.`;
-	}
 }
 
 class ModeFooter implements Component {
@@ -129,12 +115,13 @@ export default function modesExtension(pi: ExtensionAPI): void {
 	let usageTotals: UsageTotals = { cost: 0 };
 
 	function applyMode(ctx: ExtensionContext, persist = true): void {
-		if (mode === "ask") {
-			normalTools ??= pi.getActiveTools();
-			pi.setActiveTools([]);
-		} else {
+		if (mode === "normal") {
 			if (normalTools !== undefined) pi.setActiveTools(normalTools);
 			normalTools = undefined;
+		} else {
+			normalTools ??= pi.getActiveTools();
+			if (mode === "ask") pi.setActiveTools([]);
+			else pi.setActiveTools([...normalTools.filter((tool) => tool !== "edit" && tool !== "write"), "plan_question"]);
 		}
 
 		ctx.ui.setStatus("ask-mode", undefined);
@@ -156,7 +143,7 @@ export default function modesExtension(pi: ExtensionAPI): void {
 		mode = next;
 		applyMode(ctx);
 		const label = mode === "normal" ? "Normal" : mode === "ask" ? "Ask" : "Plan";
-		ctx.ui.notify(`${label} mode: tools ${mode === "ask" ? "disabled" : "enabled"}`, "info");
+		ctx.ui.notify(`${label} mode: ${mode === "ask" ? "tools disabled" : mode === "plan" ? "read-only tools enabled" : "tools enabled"}`, "info");
 	}
 
 	function cycleMode(ctx: ExtensionContext): void {
@@ -208,11 +195,10 @@ export default function modesExtension(pi: ExtensionAPI): void {
 			};
 		}
 		if (mode === "plan") {
-			const grillMeInstructions = loadGrillMeInstructions();
 			return {
 				message: {
 					customType: "assistant-mode-plan",
-					content: `Plan mode is active and tools are available for investigation. Follow the grill-me skill instructions below on every response. Use tools to verify facts needed for planning, but keep this mode non-mutating: do not edit files or perform state-changing operations. Present multiple meaningfully different options and compare their tradeoffs; explicitly recommend one when there is a clear best choice. Once the grilling process reaches shared understanding, summarize the agreed plan and ask whether the user wants to switch to "/mode normal" or Shift+Tab to implement it.\n\n${grillMeInstructions}`,
+					content: "Plan mode is active. You may use read-only tools to investigate, but never edit files or make changes. Clarify the request by asking exactly one question at a time with the plan_question tool. Provide a concise question and distinct prefilled choices; mark a recommendation when one is clearly best. Wait for the user's answer before asking the next question. The user can select with arrow keys, press Enter to submit, press Tab to add notes to a choice, or choose Other to enter a custom answer. Once you have enough information, present the plan and stop; do not ask for approval and do not begin implementation.",
 					display: false,
 				},
 			};
