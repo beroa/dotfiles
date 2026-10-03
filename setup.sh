@@ -28,6 +28,9 @@ link_pi_resource_dir() {
     local resource source_dir target_dir
     resource="$1"
     source_dir="$DOTFILES_DIR/pi/$resource"
+    if [[ "$resource" == "skills" ]]; then
+        source_dir="$DOTFILES_DIR/skills"
+    fi
     target_dir="$HOME/.pi/agent/$resource"
 
     mkdir -p "$source_dir" "$HOME/.pi/agent"
@@ -42,6 +45,64 @@ link_pi_resource_dir() {
         echo "Preserving existing Pi directory: $target_dir"
     else
         echo "Cannot link Pi resource directory over existing file: $target_dir"
+        return 1
+    fi
+}
+
+link_agent_skills() {
+    local source_root target_root backup_root skill_source skill_name target target_link conflict
+    source_root="$DOTFILES_DIR/skills"
+    target_root="$HOME/.agents/skills"
+    backup_root="$HOME/.agents/dotfiles-skill-backups"
+    conflict=0
+
+    mkdir -p "$source_root" "$target_root"
+
+    for skill_source in "$source_root"/*; do
+        [[ -d "$skill_source" && -f "$skill_source/SKILL.md" ]] || continue
+        skill_name="${skill_source##*/}"
+        target="$target_root/$skill_name"
+
+        if [[ -L "$target" ]]; then
+            target_link="$(readlink "$target" 2>/dev/null || true)"
+            if [[ "$target_link" == "$skill_source" ]]; then
+                continue
+            elif [[ ! -e "$target" ]]; then
+                rm -f "$target" || return 1
+            fi
+        fi
+
+        if [[ -e "$target" ]]; then
+            if [[ "$skill_name" == "grill-me" || "$skill_name" == "grilling" ]]; then
+                mkdir -p "$backup_root" || return 1
+                if [[ -e "$backup_root/$skill_name" ]]; then
+                    echo "Skill conflict: backup already exists at $backup_root/$skill_name" >&2
+                    conflict=1
+                    continue
+                fi
+                if ! mv "$target" "$backup_root/$skill_name"; then
+                    echo "Failed to preserve existing skill at $target" >&2
+                    return 1
+                fi
+                echo "Preserved previous $skill_name skill at $backup_root/$skill_name"
+            elif [[ -d "$target" ]] && diff -qr "$skill_source" "$target" >/dev/null 2>&1; then
+                rm -rf "$target" || return 1
+            else
+                echo "Skill conflict at $target; preserving it. Resolve the conflict to install the dotfiles copy." >&2
+                conflict=1
+                continue
+            fi
+        fi
+
+        if ! ln -s "$skill_source" "$target"; then
+            echo "Failed to link skill $target -> $skill_source" >&2
+            return 1
+        fi
+        echo "Linked skill $target -> $skill_source"
+    done
+
+    if [[ "$conflict" -ne 0 ]]; then
+        echo "One or more dotfiles skills were not installed; resolve the conflicts above and rerun setup." >&2
         return 1
     fi
 }
@@ -382,8 +443,7 @@ done
 for pi_resource in extensions skills prompts themes; do
     link_pi_resource_dir "$pi_resource" || exit 1
 done
-"$DOTFILES_DIR/pi/apply-model-selector-patch.sh" || exit 1
-
+link_agent_skills || exit 1
 mkdir -p "$HOME/.local/bin"
 link_dotfile "$DOTFILES_DIR/bin/paste-harness.sh" "$HOME/.local/bin/paste-harness" || exit 1
 link_dotfile "$DOTFILES_DIR/bin/tmux-paste-from-clipboard" "$HOME/.local/bin/tmux-paste-from-clipboard" || exit 1
@@ -391,7 +451,6 @@ chmod +x "$DOTFILES_DIR/bin/paste-harness.sh" \
   "$DOTFILES_DIR/bin/tmux-paste-from-clipboard" \
   "$DOTFILES_DIR/bin/paste-harness/"*.sh \
   "$DOTFILES_DIR/bin/paste-harness/probe.py" \
-  "$DOTFILES_DIR/pi/apply-model-selector-patch.sh" 2>/dev/null || true
 
 SHELL_RC="$HOME/.zshrc"
 BASH_RC="$HOME/.bashrc"

@@ -1,1 +1,5 @@
-{}
+{
+  "app.model.select": [],
+  "app.thinking.cycle": [],
+  "app.tree.filter.labeledOnly": "ctrl+shift+l"
+}

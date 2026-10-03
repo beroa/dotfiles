@@ -1,6 +1,13 @@
 {
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "1.0.0",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-6-luna",
-  "defaultThinkingLevel": "medium"
+  "defaultThinkingLevel": "medium",
+  "theme": "light-blue",
+  "enabledModels": [
+    "openai-codex/gpt-6-astra",
+    "openai-codex/gpt-6-luna",
+    "openai-codex/gpt-6-sol",
+    "openai-codex/gpt-6.1-sol"
+  ]
 }
