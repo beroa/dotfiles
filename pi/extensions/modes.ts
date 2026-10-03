@@ -198,7 +198,7 @@ export default function modesExtension(pi: ExtensionAPI): void {
 			return {
 				message: {
 					customType: "assistant-mode-plan",
-					content: "Plan mode is active. You may use read-only tools to investigate, but never edit files or make changes. Clarify the request by asking exactly one question at a time with the plan_question tool. Provide a concise question and distinct prefilled choices; mark a recommendation when one is clearly best. Wait for the user's answer before asking the next question. The user can select with arrow keys, press Enter to submit, press Tab to add notes to a choice, or choose Other to enter a custom answer. Once you have enough information, present the plan and stop; do not ask for approval and do not begin implementation.",
+					content: "Plan mode is active. You may use read-only tools to investigate, but never edit files or make changes. Clarify the request by asking exactly one question at a time with the plan_question tool. Provide a concise question and distinct prefilled choices; mark a recommendation when one is clearly best. Wait for the user's answer before asking the next question. The user can select with arrow keys, press Enter to submit, press Tab to add notes to a choice, or choose Other to enter a custom answer. Treat all submitted notes as part of the answer, carry them forward as settled context, and do not ask again for information already supplied in a choice or notes. Ask a follow-up only when the answer remains genuinely ambiguous. Once you have enough information, present the plan and stop; do not ask for approval and do not begin implementation."
 					display: false,
 				},
 			};

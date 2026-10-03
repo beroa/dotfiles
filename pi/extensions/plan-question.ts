@@ -18,7 +18,7 @@ export default function planQuestion(pi: ExtensionAPI): void {
 		name: "plan_question",
 		label: "Plan question",
 		description:
-			"Ask one planning question at a time using arrow-key choices. Use this instead of asking the user to type a reply. Include several distinct options and mark a recommended choice when appropriate. The user can press Tab to add notes or choose Other to enter a custom answer.",
+			"Ask one planning question at a time using arrow-key choices. Use this instead of asking the user to type a reply. Include several distinct options and mark a recommended choice when appropriate. The user can press Tab to add notes or choose Other to enter a custom answer. Treat submitted notes as part of the user's answer, carry them forward, and don't repeat a question they have already answered.",
 		parameters: Parameters,
 		executionMode: "sequential",
 		async execute(_id, params, _signal, _update, ctx) {
@@ -111,8 +111,13 @@ export default function planQuestion(pi: ExtensionAPI): void {
 			});
 
 			if (!result) return { content: [{ type: "text", text: "User cancelled the planning question." }] };
+			const answer = result.choice === "Other"
+				? result.notes
+					? `User's custom answer: ${result.notes}`
+					: "User selected Other but did not provide a custom answer."
+				: `User selected: ${result.choice}${result.notes ? `\nAdditional information from the user: ${result.notes}` : ""}`;
 			return {
-				content: [{ type: "text", text: `User selected: ${result.choice}${result.notes ? `\nNotes: ${result.notes}` : ""}` }],
+				content: [{ type: "text", text: answer }],
 				details: result,
 			};
 		},
