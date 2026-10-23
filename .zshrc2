@@ -2,6 +2,7 @@
 alias ch='clear ; tmux clear-history'
 alias gco='git checkout'
 alias gc-='git checkout -'
+alias gbd='git branch -D'
 alias gl='git log'
 alias gs='git status'
 alias git-delete-merged='git branch --merged main | grep -v "^\* main" | xargs -n 1 -r git branch -d'
